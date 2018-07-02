@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 quandl.ApiConfig.api_key = 'upvv8dx3pwLpm_Rxi8iP'
-b = quandl.get('FSE/EON_X', start_date='2016-05-09', end_date='2018-06-22')
+b = quandl.get('FSE/EON_X', start_date='2018-05-09', end_date='2018-06-22')
 a = quandl.get('FSE/EON_X', start_date='2012-05-09', end_date='2018-06-22',column_index='3',returns='numpy')
 
 
@@ -36,18 +36,7 @@ def generateData(T_x):
 	x = x.T.reshape((T_x-1,x.shape[0],1))
 	y = np.array([[a1[i] for i in range(len(a1)) if (i+1)%T_x==0]]).T
 
-
 	return x, y
-
-x1,y1 = generateData(5)
-
-#print(x1)
-#print(y)
-
-#perm = list(np.random.permutation(55))
-#print(x[perm,:])
-
-
 
 def minibatches(X,Y,mini_batch_size):
 
@@ -77,17 +66,6 @@ def minibatches(X,Y,mini_batch_size):
 		num_minibatches +=1
 
 	return mini_batches, num_minibatches
-
-
-#mini_batches, num_minibatches = minibatches(x1,y1,mini_batch_size = 20)
-#print(num_minibatches)
-
-#print ("shape of the 1st mini_batch_X: " + str(mini_batches[0][0].shape))
-#print ("shape of the 2nd mini_batch_X: " + str(mini_batches[1][0].shape))
-#print ("shape of the 3rd mini_batch_X: " + str(mini_batches[2][0].shape))
-#print ("shape of the 1st mini_batch_Y: " + str(mini_batches[0][1].shape))
-#print ("shape of the 2nd mini_batch_Y: " + str(mini_batches[1][1].shape))
-#print ("shape of the 3rd mini_batch_Y: " + str(mini_batches[2][1].shape))
 
 def initialize_parameters(n_a,n_x,n_y):
 
@@ -151,53 +129,54 @@ def create_placeholders(n_x,n_y,n_a,T_x):
 
 	return X, Y, a0
 
-X, Y, a0 = create_placeholders(1,1,5,4)
-state_size = 5
-
-inputs_series = tf.unstack(X,axis=0)
-
-
-#Build computation graph
-parameters = initialize_parameters(5,1,1)
-print(parameters["W"].shape)
-print(a0.shape)
-print(X.shape)
-#print(inputs_series)
-
-
-prediction,_,_ = rnn_forward(inputs_series,a0,parameters)
-print("prediction: " + str(prediction.shape))
-
-total_loss = compute_cost(prediction,Y)
-
-optimizer = tf.train.AdamOptimizer()
-train_step = optimizer.minimize(total_loss)
-
 #Do training
-with tf.Session() as sess2:
 
-	sess2.run(tf.global_variables_initializer())
+x,y = generateData(5)
 
-	x,y = generateData(5)
-	m = x.shape[1]
+def model_1(X_train,Y_train,state_size,mini_batch_size,num_epochs,print_cost=True):
 
-	for epoch in range(500):
+	#input dimensions
+	n_x = X_train.shape[2]
+	m = X_train.shape[1]
+	n_y = Y_train.shape[1]
+	parameters = initialize_parameters(state_size,n_x,n_y)
 
-		print("Epoch: " + str(epoch))
-		mini_batches, num_minibatches = minibatches(x,y,mini_batch_size = 20)
-		epoch_cost = 0
+	#computation graph
+	X,Y,a0 = create_placeholders(n_x,n_y,state_size,4)
+	inputs_series = tf.unstack(X,axis=0)
+	prediction,_,_ = rnn_forward(inputs_series,a0,parameters)
+	total_loss = compute_cost(prediction,Y)
 
-		for minibatch in mini_batches:
+	#optimizer
+	optimizer = tf.train.AdamOptimizer()
+	train_step = optimizer.minimize(total_loss)
 
-			(minibatch_X, minibatch_Y) = minibatch
-			#print(minibatch_X.shape)
-			batch_size = minibatch_X.shape[1] 
-			_,minibatch_cost = sess2.run([train_step,total_loss],
-				feed_dict={X:minibatch_X, Y: minibatch_Y,a0: np.zeros((batch_size,state_size))})
+	with tf.Session() as sess2:
+
+		sess2.run(tf.global_variables_initializer())
+		for epoch in range(num_epochs):
+
+			mini_batches, num_minibatches = minibatches(X_train,Y_train,mini_batch_size)
+			epoch_cost = 0
+
+			for minibatch in mini_batches:
+
+				(minibatch_X, minibatch_Y) = minibatch
+				#print(minibatch_X.shape)
+				batch_size = minibatch_X.shape[1] 
+				_,minibatch_cost = sess2.run([train_step,total_loss],
+					feed_dict={X:minibatch_X, Y: minibatch_Y,a0: np.zeros((batch_size,state_size))})
 
 			epoch_cost+= minibatch_cost/num_minibatches
 
-		print ("Cost after epoch %i: %f" % (epoch, epoch_cost))
+
+			if print_cost == True and epoch%50 == 0:
+				print ("Cost after epoch %i: %f" % (epoch, epoch_cost))
+
+	return parameters
+
+
+model_1(x,y,5,20,500)
 
 
 
@@ -208,16 +187,7 @@ with tf.Session() as sess2:
 
 
 
-
-
-
-
-
-
-
-
-
-
+#random tests
 sess = tf.Session()
 
 A = sess.run( tf.concat( [tf.constant([[2,3,4],[5,6,7]]), tf.constant([[1,2,3],[9,8,7]])], 1 ) )
