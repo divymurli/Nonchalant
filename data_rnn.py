@@ -6,14 +6,17 @@ import pandas as pd
 
 quandl.ApiConfig.api_key = 'upvv8dx3pwLpm_Rxi8iP'
 b = quandl.get('FSE/EON_X', start_date='2018-05-09', end_date='2018-06-22')
-a = quandl.get('FSE/EON_X', start_date='2012-05-09', end_date='2018-06-22',column_index='3',returns='numpy')
+a = quandl.get('FSE/EON_X', start_date='2018-05-09', end_date='2018-06-22',column_index='3',returns='numpy')
+c = quandl.get('XBOM/500010', start_date='2012-03-20', end_date='2018-07-02')
 
-
+#convert to numpy array
+c1 = np.asarray(c.iloc[:,0:4],dtype=np.float32)
+#print(c1)
+#print(c1.shape)
 #print(b)
 
-print(a.shape[0] - a.shape[0]%5)
 
-
+#print(a.shape[0] - a.shape[0]%5)
 
 b = [a[i][1] for i in range(a.shape[0])]
 #print(b)
@@ -30,13 +33,34 @@ d = [b1[i:i + 4] for i in range(0, len(b1), 5)]
 e = [b1[i] for i in range(len(b)) if (i+1)%5==0]
 #print(e)
 
-def generateData(T_x):
-	a1 = [a[i][1] for i in range(a.shape[0] - a.shape[0]%T_x)]
-	x = np.array([a1[i:i+T_x-1] for i in range(0,len(a1),T_x)])
-	x = x.T.reshape((T_x-1,x.shape[0],1))
-	y = np.array([[a1[i] for i in range(len(a1)) if (i+1)%T_x==0]]).T
+def generateData(N):
+	a1 = [a[i][1] for i in range(a.shape[0] - a.shape[0]%N)]
+	x = np.array([a1[i:i+N-1] for i in range(0,len(a1),N)])
+	x = x.T.reshape((N-1,x.shape[0],1))
+	y = np.array([[a1[i] for i in range(len(a1)) if (i+1)%N==0]]).T
 
 	return x, y
+
+def generateData2(N,input_frame):
+	M = input_frame.shape[0] - input_frame.shape[0]%N
+	a1 = input_frame[0:M,:]
+	mask1 = np.remainder(np.arange(M),N)
+	a_x = a1[mask1 != N-1,:]
+	a_y = a1[mask1 == N-1,0]
+	a_y = a_y.reshape(a_y.shape[0],1)
+	#print(a_x)
+	mask = np.remainder(np.arange(int(a_x.shape[0])),N-1)
+	list_arr_x = []
+	for i in range(int(a_x.shape[0]/a_y.shape[0])):
+		a = a_x[mask == i, :]
+		list_arr_x.append(a)
+
+	array_x = np.stack(list_arr_x,axis=0)
+		
+	
+
+	return array_x, a_y
+
 
 def minibatches(X,Y,mini_batch_size):
 
@@ -66,6 +90,17 @@ def minibatches(X,Y,mini_batch_size):
 		num_minibatches +=1
 
 	return mini_batches, num_minibatches
+
+
+"""
+mini_batches, num_minibatches = minibatches(x, y, mini_batch_size = 48)
+
+print ("shape of the 1st mini_batch_X: " + str(mini_batches[0][0].shape))
+print ("shape of the 2nd mini_batch_X: " + str(mini_batches[1][0].shape))
+print ("shape of the 3rd mini_batch_X: " + str(mini_batches[2][0].shape))
+print ("shape of the 4rd mini_batch_X: " + str(mini_batches[3][0].shape))
+print(num_minibatches)
+"""
 
 def initialize_parameters(n_a,n_x,n_y):
 
@@ -131,7 +166,16 @@ def create_placeholders(n_x,n_y,n_a,T_x):
 
 #Do training
 
-x,y = generateData(5)
+#x,y = generateData(5)
+#print(x)
+#print(y)
+
+x, y = generateData2(5,c1)
+
+#print(array_x)
+print(x.shape)
+#print(a_y)
+print(y.shape)
 
 def model_1(X_train,Y_train,state_size,mini_batch_size,num_epochs,print_cost=True):
 
@@ -170,13 +214,13 @@ def model_1(X_train,Y_train,state_size,mini_batch_size,num_epochs,print_cost=Tru
 			epoch_cost+= minibatch_cost/num_minibatches
 
 
-			if print_cost == True and epoch%50 == 0:
+			if print_cost == True:
 				print ("Cost after epoch %i: %f" % (epoch, epoch_cost))
 
 	return parameters
 
 
-model_1(x,y,5,20,500)
+model_1(x,y,5,30,20)
 
 
 
@@ -184,9 +228,7 @@ model_1(x,y,5,20,500)
 
 
 
-
-
-
+"""
 #random tests
 sess = tf.Session()
 
@@ -208,7 +250,7 @@ for state in E:
 	print(sess.run(state))
 	print(state.shape)
 
-
+"""
 
 
 
