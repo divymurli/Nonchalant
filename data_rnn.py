@@ -4,34 +4,19 @@ import math
 import numpy as np
 import pandas as pd
 
+
+#get data
 quandl.ApiConfig.api_key = 'upvv8dx3pwLpm_Rxi8iP'
-b = quandl.get('FSE/EON_X', start_date='2018-05-09', end_date='2018-06-22')
-a = quandl.get('FSE/EON_X', start_date='2018-05-09', end_date='2018-06-22',column_index='3',returns='numpy')
-c = quandl.get('XBOM/500010', start_date='2012-03-20', end_date='2018-07-02')
-
-#convert to numpy array
-c1 = np.asarray(c.iloc[:,0:4],dtype=np.float32)
-#print(c1)
-#print(c1.shape)
-#print(b)
+frankfurt_data = quandl.get('FSE/EON_X', start_date='2012-05-09', end_date='2018-06-22')
+scalar_input = quandl.get('FSE/EON_X', start_date='2012-05-09', end_date='2018-06-22',column_index='3',returns='numpy')
+vectorized_input = quandl.get('XBOM/500010', start_date='2010-03-20', end_date='2018-07-02')
 
 
-#print(a.shape[0] - a.shape[0]%5)
+def convert_to_numpy(pandas_frame, begin_column, end_column):
 
-b = [a[i][1] for i in range(a.shape[0])]
-#print(b)
+	numpy_frame = np.asarray(pandas_frame.iloc[:,begin_column:end_column],dtype=np.float32)
 
-b1 = [a[i][1] for i in range(a.shape[0] - a.shape[0]%5)]
-#print(b1)
-
-c = [b1[i:i + 5] for i in range(0, len(b1), 5)]
-#print(c)
-
-d = [b1[i:i + 4] for i in range(0, len(b1), 5)]
-#print(d)
-
-e = [b1[i] for i in range(len(b)) if (i+1)%5==0]
-#print(e)
+	return numpy_frame
 
 def generateData(N):
 	a1 = [a[i][1] for i in range(a.shape[0] - a.shape[0]%N)]
@@ -57,8 +42,6 @@ def generateData2(N,input_frame):
 
 	array_x = np.stack(list_arr_x,axis=0)
 		
-	
-
 	return array_x, a_y
 
 
@@ -120,7 +103,7 @@ def rnn_cell_forward(xt,a_prev,parameters):
 	
 	concatenated = tf.concat([a_prev,xt],1)
 
-	a_next = tf.nn.tanh(tf.matmul(concatenated,W)+b)
+	a_next = tf.nn.relu(tf.matmul(concatenated,W)+b)
 
 	return a_next
 
@@ -155,7 +138,6 @@ def compute_cost(prediction,label):
 	return loss
 
 #Create placeholders for input
-
 def create_placeholders(n_x,n_y,n_a,T_x):
 
 	X = tf.placeholder(tf.float32,shape=(T_x,None,n_x),name="X")
@@ -166,16 +148,9 @@ def create_placeholders(n_x,n_y,n_a,T_x):
 
 #Do training
 
-#x,y = generateData(5)
-#print(x)
-#print(y)
+training_frame = convert_to_numpy(vectorized_input,0,4)
 
-x, y = generateData2(5,c1)
-
-#print(array_x)
-print(x.shape)
-#print(a_y)
-print(y.shape)
+x,y = generateData2(5,training_frame)
 
 def model_1(X_train,Y_train,state_size,mini_batch_size,num_epochs,print_cost=True):
 
@@ -214,14 +189,15 @@ def model_1(X_train,Y_train,state_size,mini_batch_size,num_epochs,print_cost=Tru
 			epoch_cost+= minibatch_cost/num_minibatches
 
 
-			if print_cost == True:
+			if print_cost == True and epoch%50 == 0:
 				print ("Cost after epoch %i: %f" % (epoch, epoch_cost))
 
 	return parameters
 
 
-model_1(x,y,5,30,20)
-
+model_1(x,y,5,30,1000)
+#problem with multiple stocks being fed in?
+#use regularization?
 
 
 
