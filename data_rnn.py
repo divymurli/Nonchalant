@@ -75,6 +75,12 @@ def minibatches(X,Y,mini_batch_size):
 	return mini_batches, num_minibatches
 
 
+def print_mini_batch_sizes(mini_batches,num_minibatches):
+
+	for i in range(num_minibatches):
+		print ("shape of mini_batch"+str(i) + ": " + str(mini_batches[i][0].shape))
+
+
 """
 mini_batches, num_minibatches = minibatches(x, y, mini_batch_size = 48)
 
@@ -195,9 +201,10 @@ def model_1(X_train,Y_train,state_size,mini_batch_size,num_epochs,print_cost=Tru
 	return parameters
 
 
-model_1(x,y,5,30,1000)
+#model_1(x,y,5,30,1000)
 #problem with multiple stocks being fed in?
 #use regularization?
+#minibatches do seem to be taking care of randomization of training data
 
 
 
