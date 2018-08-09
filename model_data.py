@@ -7,17 +7,18 @@ import random
 class preprocessData(object):
 
 
-	def __init__(self,pandas_frame=None,single_column=False,window_size=1,num_steps=5,normalized=True):
+	def __init__(self,test_ratio=0.1,pandas_frame=None,single_column=False,window_size=1,num_steps=5,normalized=True):
 		self.pandas_frame = pandas_frame
 		self.single_column = single_column
 		self.window_size=window_size
 		self.num_steps = num_steps
 		self.normalized = normalized
+		self.test_ratio = test_ratio
 
 
 	def generate_frame(self):
 		quandl.ApiConfig.api_key = 'upvv8dx3pwLpm_Rxi8iP'
-		stock_exchange = quandl.get('XBOM/500010', start_date='200-01-20', end_date='2018-07-02')
+		stock_exchange = quandl.get('XBOM/500010', start_date='2000-01-20', end_date='2018-07-02')
 		vectorized_input = stock_exchange.iloc[:,3]
 
 		return vectorized_input
@@ -25,7 +26,7 @@ class preprocessData(object):
 
 	def generate_full_frame(self):
 		quandl.ApiConfig.api_key = 'upvv8dx3pwLpm_Rxi8iP'
-		stock_exchange = quandl.get('XBOM/500010', start_date='2000-01-20', end_date='2018-07-02')
+		stock_exchange = quandl.get('XBOM/500010', start_date='2000-01-20', end_date='2018-08-02')
 		vectorized_input = stock_exchange.iloc[:,0:4]
 
 		return vectorized_input
@@ -45,6 +46,8 @@ class preprocessData(object):
 
 		seq = [np.array(seq[i * self.window_size: (i + 1) * self.window_size])
                for i in range(len(seq) // self.window_size)]
+
+		#print("divisors: " + str([seq[i][0][-1] for i in range(len(seq))]))
 
 		if self.normalized:
 			divisor = [seq[i][0][-1] for i in range(len(seq))]
@@ -75,6 +78,17 @@ class preprocessData(object):
 
 
 		return seq,X,Y
+
+	def split_data(self,X,Y):
+		
+		train_size = int(X.shape[1] * (1.0 - self.test_ratio))
+
+		train_X, test_X = X[:,:train_size,:], X[:,train_size:,:]
+		train_Y, test_Y = Y[:train_size,:], Y[train_size:,:]
+
+		return train_X, train_Y, test_X, test_Y
+
+
 
 
 	@staticmethod
@@ -108,15 +122,25 @@ class preprocessData(object):
 	    for i in range(num_minibatches):
 	        print ("shape of mini_batch" + str(i) + ": " + str(mini_batches[i][0].shape))
 
-data = preprocessData()
+#data = preprocessData()
 
 #print(data.generate_full_frame())
-seq = data.to_list()
-seq,X,Y = data.prepare_data(seq)
+#seq = data.to_list()
+#seq,X,Y = data.prepare_data(seq)
+#train_X,train_Y,test_X,test_Y = data.split_data(X,Y)
+
 #print(seq)
+#print(X)
+#print(Y)
 #print(seq[0][0][-1])
-mini_batches,num_minibatches = data.minibatches(X,Y,10)
+#mini_batches,num_minibatches = data.minibatches(X,Y,10)
 #print(X.shape)
+#print(Y.shape)
+#print(train_X.shape)
+#print(train_Y.shape)
+#print(test_X.shape)
+#print(test_Y.shape)
+
 
 
 

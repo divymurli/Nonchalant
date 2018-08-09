@@ -119,8 +119,18 @@ def create_placeholders(n_x, n_y, n_a, T_x):
 
 #Load data
 data = preprocessData()
+data_unnorm = preprocessData(normalized=False)
 seq = data.to_list()
+seq_unnorm = data_unnorm.to_list()
+
 _,x,y = data.prepare_data(seq)
+_,x_unnorm, y_unnorm = data_unnorm.prepare_data(seq_unnorm)
+train_x,train_y,test_x,test_y = data.split_data(x,y)
+print(test_y.shape)
+_,_,test_x_unnorm, test_y_unnorm = data.split_data(x_unnorm,y_unnorm)
+print(test_x_unnorm.shape)
+
+
 _,num_minibatches_ = data.minibatches(x, y, 30)
 print(num_minibatches_)
 
@@ -128,6 +138,7 @@ print(num_minibatches_)
 #print(y.shape)
 
 #used for testing shapes
+
 """
 n_x = x.shape[2]
 m = x.shape[1]
@@ -139,7 +150,7 @@ prediction, _, _ = rnn_forward(inputs_series, a0, parameters)
 print(prediction.shape)
 """
 
-def model_1(X_train, Y_train, state_size, mini_batch_size, num_epochs, print_cost=True):
+def model_1(X_train, Y_train, X_test, Y_test, state_size, mini_batch_size, num_epochs, print_train_cost=True,print_val_cost=True):
     # input dimensions
     n_x = X_train.shape[2]
     m = X_train.shape[1]
@@ -158,7 +169,7 @@ def model_1(X_train, Y_train, state_size, mini_batch_size, num_epochs, print_cos
     learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,
                                            2000, 0.9, staircase=True)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate)
+    optimizer = tf.train.AdamOptimizer(starter_learning_rate)
     train_step = optimizer.minimize(total_loss,global_step=global_step)
 
     final_cost = -1
@@ -168,6 +179,7 @@ def model_1(X_train, Y_train, state_size, mini_batch_size, num_epochs, print_cos
         sess2.run(tf.global_variables_initializer())
 
         mini_batches, num_minibatches = data.minibatches(X_train, Y_train, mini_batch_size)
+        print("num_train_minibatches: " + str(num_minibatches))
         pre_epoch_cost = 0
 
         for minibatch in mini_batches:
@@ -203,14 +215,32 @@ def model_1(X_train, Y_train, state_size, mini_batch_size, num_epochs, print_cos
 
             final_cost = epoch_cost
 
-            if print_cost == True:
-            	print ("Cost after epoch %i: %f" % (epoch, epoch_cost))
+            if print_train_cost == True:
+            	print("Cost after epoch %i: %f" % (epoch, epoch_cost))
+
+            if print_val_cost == True and epoch%5 == True:
+
+                prediction_val_norm, total_loss_val = sess2.run([prediction,total_loss],feed_dict={X: X_test, Y: Y_test,
+                    a0: np.zeros((Y_test.shape[0],state_size))})
+
+                #check this
+                #prediction = np.exp(prediction_val_norm[-1])*test_y_unnorm[-2][-1]
+                print("Example prediction: "+ str(sess2.run( tf.multiply( tf.exp(prediction_val_norm[-1]),test_x_unnorm[-2][-1]  ) ) ) )
+
+
+
+                #perf_str = "Validation_prediction: %.2f, Validation_loss: %.2f" % (prediction_val_norm, total_loss_val)
+                #print(perf_str)
+
+                #print("Validation cost: " + str(sess2.run([total_loss],feed_dict={X: X_test, Y: Y_test,
+                    #a0: np.zeros((Y_test.shape[0],state_size))  } ) ))
+
  		
 
     return parameters, final_cost
 
 
-model_1(x, y, 5, 30, 40)
+model_1(train_x, train_y, test_x, test_y, 5, 30, 10)
 
 def print_success(trial_count):
 
