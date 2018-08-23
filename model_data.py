@@ -7,13 +7,14 @@ import random
 class preprocessData(object):
 
 
-	def __init__(self,test_ratio=0.1,pandas_frame=None,single_column=False,window_size=1,num_steps=5,normalized=True):
+	def __init__(self,test_ratio=0.05,seed=42,pandas_frame=None,single_column=False,window_size=1,num_steps=5,normalized=True):
 		self.pandas_frame = pandas_frame
 		self.single_column = single_column
 		self.window_size=window_size
 		self.num_steps = num_steps
 		self.normalized = normalized
 		self.test_ratio = test_ratio
+		self.seed = seed
 
 
 	def generate_frame(self):
@@ -26,7 +27,7 @@ class preprocessData(object):
 
 	def generate_full_frame(self):
 		quandl.ApiConfig.api_key = 'upvv8dx3pwLpm_Rxi8iP'
-		stock_exchange = quandl.get('XBOM/500010', start_date='2000-01-20', end_date='2018-08-02')
+		stock_exchange = quandl.get('XBOM/500010', start_date='2000-07-20', end_date='2018-08-15')
 		vectorized_input = stock_exchange.iloc[:,0:4]
 
 		return vectorized_input
@@ -42,12 +43,16 @@ class preprocessData(object):
 		return pandas_list
 
 
+
+
 	def prepare_data(self,seq):
 
 		seq = [np.array(seq[i * self.window_size: (i + 1) * self.window_size])
-               for i in range(len(seq) // self.window_size)]
+			   for i in range(len(seq) // self.window_size)]
 
 		#print("divisors: " + str([seq[i][0][-1] for i in range(len(seq))]))
+
+		seq_std = 1
 
 		if self.normalized:
 			divisor = [seq[i][0][-1] for i in range(len(seq))]
@@ -55,6 +60,14 @@ class preprocessData(object):
 			for i in range(1,len(seq)):
 
 				seq[i][0] = np.log(seq[i]/divisor[i-1])
+				
+				#seq[i][0] = seq[i][0] 
+
+			seq_std = np.std(seq)
+			
+			seq = seq / seq_std
+
+			#return seq_std
 
 		X = np.array([seq[i: i + self.num_steps] for i in range(len(seq) - self.num_steps)])
 		if not self.single_column:
@@ -77,64 +90,113 @@ class preprocessData(object):
 			Y = np.array([seq[i+self.num_steps] for i in range(len(seq) - self.num_steps)])
 
 
-		return seq,X,Y
+
+		return seq,X,Y, seq_std
+
+	def prepare_baseline_data(self, seq):
+		seq = [np.array(seq[i * self.window_size: (i + 1) * self.window_size])
+			   for i in range(len(seq) // self.window_size)]
+		X = np.array([seq[i: i + self.num_steps] for i in range(len(seq) - self.num_steps)])
+		X = X.reshape((X.shape[0],X.shape[1],X.shape[3]))
+
+		list_arr_x = []
+		for i in range(self.num_steps):
+			a = X[:,i,:]
+			list_arr_x.append(a)
+
+		X = np.stack(list_arr_x,axis=0)
+
+		Y_row = []
+		for i in range(X.shape[1]):
+			Y_row.append(np.repeat(X[-1][i][-1],4))
+		Y = np.stack(Y_row,axis=0)
+
+		return seq, X, Y  
+
 
 	def split_data(self,X,Y):
 		
 		train_size = int(X.shape[1] * (1.0 - self.test_ratio))
 
-		train_X, test_X = X[:,:train_size,:], X[:,train_size:,:]
-		train_Y, test_Y = Y[:train_size,:], Y[train_size:,:]
+		m = X.shape[1]
+		np.random.seed(self.seed)
+		permutation_array = np.random.permutation(m)
+		permutation = list(permutation_array)
+		#print("permutation_used: " + str(permutation))
+		shuffled_X = X[:, permutation,:]
+		shuffled_Y = Y[permutation, :]
 
-		return train_X, train_Y, test_X, test_Y
+		#print("Shuffled_X:")
+		#print(shuffled_X)
 
+		train_X, test_X = shuffled_X[:,:train_size,:], shuffled_X[:,train_size:,:]
+		train_Y, test_Y = shuffled_Y[:train_size,:], shuffled_Y[train_size:,:]
 
-
+		return train_X, train_Y, test_X, test_Y,permutation_array
 
 	@staticmethod
 	def minibatches(X, Y, mini_batch_size):
-	    m = X.shape[1]
-	    mini_batches = []
-	    permutation = list(np.random.permutation(m))
-	    shuffled_X = X[:, permutation, :]
-	    shuffled_Y = Y[permutation, :]
-	    num_complete_minibatches = math.floor(m / mini_batch_size)
-	    num_minibatches = num_complete_minibatches
+		m = X.shape[1]
+		mini_batches = []
+		permutation = list(np.random.permutation(m))
+		shuffled_X = X[:, permutation, :]
+		shuffled_Y = Y[permutation, :]
+		num_complete_minibatches = math.floor(m / mini_batch_size)
+		num_minibatches = num_complete_minibatches
 
-	    for k in range(0, num_complete_minibatches):
-	        mini_batch_X = shuffled_X[:, k * mini_batch_size:(k + 1) * mini_batch_size, :]
-	        mini_batch_Y = shuffled_Y[k * mini_batch_size:(k + 1) * mini_batch_size, :]
+		for k in range(0, num_complete_minibatches):
+			mini_batch_X = shuffled_X[:, k * mini_batch_size:(k + 1) * mini_batch_size, :]
+			mini_batch_Y = shuffled_Y[k * mini_batch_size:(k + 1) * mini_batch_size, :]
 
-	        mini_batch = (mini_batch_X, mini_batch_Y)
-	        mini_batches.append(mini_batch)
+			mini_batch = (mini_batch_X, mini_batch_Y)
+			mini_batches.append(mini_batch)
 
-	    # handling last minibatch
-	    if m % mini_batch_size != 0:
-	        mini_batch_X = shuffled_X[:, 0:(m - mini_batch_size * num_complete_minibatches), :]
-	        mini_batch_Y = shuffled_Y[0:(m - mini_batch_size * num_complete_minibatches), :]
-	        mini_batch = (mini_batch_X, mini_batch_Y)
-	        mini_batches.append(mini_batch)
-	        num_minibatches += 1
+		# handling last minibatch
+		if m % mini_batch_size != 0:
+			mini_batch_X = shuffled_X[:, 0:(m - mini_batch_size * num_complete_minibatches), :]
+			mini_batch_Y = shuffled_Y[0:(m - mini_batch_size * num_complete_minibatches), :]
+			mini_batch = (mini_batch_X, mini_batch_Y)
+			mini_batches.append(mini_batch)
+			num_minibatches += 1
 
-	    return mini_batches, num_minibatches
+		return mini_batches, num_minibatches
 	@staticmethod
 	def print_mini_batch_sizes(mini_batches, num_minibatches):
-	    for i in range(num_minibatches):
-	        print ("shape of mini_batch" + str(i) + ": " + str(mini_batches[i][0].shape))
+		for i in range(num_minibatches):
+			print ("shape of mini_batch" + str(i) + ": " + str(mini_batches[i][0].shape))
 
-#data = preprocessData()
 
-#print(data.generate_full_frame())
-#seq = data.to_list()
-#seq,X,Y = data.prepare_data(seq)
+
+"""
+data = preprocessData(test_ratio = 0.2,normalized=False)
+
+print(data.generate_full_frame())
+seq_1 = data.to_list()
+seq,X,Y,seq_std = data.prepare_data(seq_1)
+print(seq)
+_,X_base, Y_base = data.prepare_baseline_data(seq_1)
+print(X_base)
+print(Y_base)
+#print(X)
+print(Y)
+"""
+#print(seq_std)
 #train_X,train_Y,test_X,test_Y = data.split_data(X,Y)
+#print(test_X)
+#print(test_Y)
+#print(test_X[3][-1][-1])
+#print(test_X.shape)
+
 
 #print(seq)
 #print(X)
 #print(Y)
+#print(seq)
+#print(np.std(seq))
 #print(seq[0][0][-1])
 #mini_batches,num_minibatches = data.minibatches(X,Y,10)
 #print(X.shape)
+
 #print(Y.shape)
 #print(train_X.shape)
 #print(train_Y.shape)
