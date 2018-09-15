@@ -107,11 +107,18 @@ def rnn_forward(inputs_series, init_state, parameters):
 def compute_cost(prediction, label):
 	loss = tf.reduce_mean(tf.square(tf.subtract(prediction, label)))
 	#loss =  tf.square(tf.subtract(prediction, label))
-
 	return loss
 
 def compute_cost_column(prediction,label):
-	loss = tf.reduce_mean(tf.square(tf.subtract(prediction, label)),axis=0)
+	prediction = tf.transpose(prediction)
+	label = tf.transpose(label)
+	#print(label.shape)
+	prediction_open = tf.gather_nd(prediction,[0])
+	label_open = tf.gather_nd(label,[0])
+	#print(label_open.shape)
+	loss = tf.reduce_mean(tf.square(tf.subtract(prediction_open, label_open)))
+
+	return loss
 
 #computes the cost for each row separately
 def compute_cost_row(prediction,label):
@@ -179,8 +186,10 @@ inputs_series = tf.unstack(X, axis=0)
 parameters = initialize_parameters(5, n_x, n_y)
 prediction, _, _ = rnn_forward(inputs_series, a0, parameters)
 print(prediction.shape)
-cost_row = compute_cost_row(prediction,Y)
-print(cost_row.shape)
+#cost_row = compute_cost_row(prediction,Y)
+cost_column = compute_cost_column(prediction,Y)
+print(cost_column.shape)
+#print(cost_row.shape)
 """
 
 
@@ -196,7 +205,8 @@ def model_1(X_train, Y_train, X_test, Y_test, state_size, mini_batch_size, num_e
 	inputs_series = tf.unstack(X, axis=0)
 	prediction, _, _ = rnn_forward(inputs_series, a0, parameters)
 	total_loss_row = compute_cost_row(prediction,Y)
-	#total_loss_column = compute_cost_column(prediction,Y)
+	print(total_loss_row.shape)
+	total_loss_column = compute_cost_column(prediction,Y)
 	total_loss = compute_cost(prediction, Y)
 
 	# optimizer
@@ -254,7 +264,7 @@ def model_1(X_train, Y_train, X_test, Y_test, state_size, mini_batch_size, num_e
 
 			if print_val_cost == True and epoch%10 == True:
 
-				prediction_val_norm, total_loss_val,total_loss_val_row = sess2.run([prediction,total_loss,total_loss_row],feed_dict={X: X_test, Y: Y_test,
+				prediction_val_norm, total_loss_val,total_loss_val_row,total_loss_val_column = sess2.run([prediction,total_loss,total_loss_row,total_loss_column],feed_dict={X: X_test, Y: Y_test,
 					a0: np.zeros((Y_test.shape[0],state_size))})
 
 				#check this
@@ -263,7 +273,7 @@ def model_1(X_train, Y_train, X_test, Y_test, state_size, mini_batch_size, num_e
 				#print("Individual validation losses: " + str(total_loss_val_row))
 				#print(total_loss_val_row.shape)
 				#print("Average of ind val losses: " + str(np.average(total_loss_val_row)))
-				#print("Total loss column: " + str(total_loss_val_column))
+				print("Total loss open: " + str(total_loss_val_column))
 
 
 				print("Uncorrected prediction: " + str(prediction_val_norm[row] ) )

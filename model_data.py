@@ -170,6 +170,9 @@ class preprocessData(object):
 	def compute_loss_baseline_data(self,Y_pred,Y):
 		return np.mean( np.square( np.subtract(Y_pred, Y)  ) )
 
+	def compute_loss_open_baseline_data(self,Y_pred,Y):
+		return np.mean( np.square( np.subtract(Y_pred[:,0], Y[:,0])  ) )
+
 
 	def split_data(self,X,Y):
 		
@@ -255,6 +258,8 @@ _,X_base, Y_base = data.prepare_baseline_data(seq_1)
 #print(Y)
 #print(Y_base)
 print("Baseline cost: " + str(data.compute_loss_baseline_data(Y,Y_base)))
+print("Baseline cost open: " + str(data.compute_loss_open_baseline_data(Y,Y_base)))
+
 
 
 """
